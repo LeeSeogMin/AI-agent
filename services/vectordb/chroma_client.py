@@ -81,7 +81,8 @@ class ChromaClient:
         document: str,
         metadata: Dict[str, Any],
         document_id: Optional[str] = None,
-        embedding: Optional[List[float]] = None
+        embedding: Optional[List[float]] = None,
+        timestamp: Optional[str] = None
     ) -> str:
         """
         문서 추가
@@ -91,6 +92,7 @@ class ChromaClient:
             metadata: 메타데이터
             document_id: 문서 ID (없으면 자동 생성)
             embedding: 임베딩 벡터 (없으면 자동 생성)
+            timestamp: 문서 타임스탬프 (없으면 현재 시간 사용)
         
         Returns:
             str: 문서 ID
@@ -101,6 +103,16 @@ class ChromaClient:
         # 임베딩 생성
         if embedding is None:
             embedding = get_embedding(document)
+            
+        # 타임스탬프 추가
+        import datetime
+        if timestamp is None:
+            timestamp = datetime.datetime.now().isoformat()
+            
+        # 타임스탬프를 메타데이터에 추가
+        if metadata is None:
+            metadata = {}
+        metadata["timestamp"] = timestamp
         
         try:
             self.collection.add(
@@ -109,7 +121,7 @@ class ChromaClient:
                 metadatas=[metadata],
                 documents=[document]
             )
-            logger.debug(f"Added document with ID: {doc_id}")
+            logger.debug(f"Added document with ID: {doc_id}, timestamp: {timestamp}")
             return doc_id
         except Exception as e:
             error_msg = f"Error adding document to vector DB: {str(e)}"
@@ -127,7 +139,8 @@ class ChromaClient:
         documents: List[str],
         metadatas: List[Dict[str, Any]],
         document_ids: Optional[List[str]] = None,
-        embeddings: Optional[List[List[float]]] = None
+        embeddings: Optional[List[List[float]]] = None,
+        timestamps: Optional[List[str]] = None
     ) -> List[str]:
         """
         여러 문서 추가
@@ -137,6 +150,7 @@ class ChromaClient:
             metadatas: 메타데이터 목록
             document_ids: 문서 ID 목록 (없으면 자동 생성)
             embeddings: 임베딩 벡터 목록 (없으면 자동 생성)
+            timestamps: 타임스탬프 목록 (없으면 현재 시간 사용)
         
         Returns:
             List[str]: 문서 ID 목록
@@ -152,6 +166,20 @@ class ChromaClient:
         elif len(document_ids) != n_docs:
             raise ValueError(f"Number of documents ({n_docs}) and document_ids ({len(document_ids)}) do not match")
         
+        # 타임스탬프 추가
+        import datetime
+        if timestamps is None:
+            current_time = datetime.datetime.now()
+            timestamps = [current_time.isoformat() for _ in range(n_docs)]
+        elif len(timestamps) != n_docs:
+            raise ValueError(f"Number of documents ({n_docs}) and timestamps ({len(timestamps)}) do not match")
+            
+        # 타임스탬프를 메타데이터에 추가
+        for i in range(n_docs):
+            if metadatas[i] is None:
+                metadatas[i] = {}
+            metadatas[i]["timestamp"] = timestamps[i]
+        
         # 임베딩 생성은 추가 시 자동으로 처리 (비동기 처리 용이하게)
         
         try:
@@ -161,7 +189,7 @@ class ChromaClient:
                 metadatas=metadatas,
                 documents=documents
             )
-            logger.debug(f"Added {n_docs} documents")
+            logger.debug(f"Added {n_docs} documents with timestamps")
             return document_ids
         except Exception as e:
             error_msg = f"Error adding documents to vector DB: {str(e)}"
@@ -292,7 +320,8 @@ class ChromaClient:
         query_text: str,
         n_results: int = 5,
         filter_dict: Optional[Dict[str, Any]] = None,
-        embedding: Optional[List[float]] = None
+        embedding: Optional[List[float]] = None,
+        time_range: Optional[Dict[str, str]] = None
     ) -> List[Dict[str, Any]]:
         """
         벡터 검색 실행
@@ -302,6 +331,7 @@ class ChromaClient:
             n_results: 결과 개수
             filter_dict: 필터 조건
             embedding: 쿼리 임베딩 (없으면 자동 생성)
+            time_range: 시간 범위 필터 {'start': '2023-01-01T00:00:00', 'end': '2023-01-31T23:59:59'}
         
         Returns:
             List[Dict[str, Any]]: 검색 결과
@@ -311,11 +341,24 @@ class ChromaClient:
             if embedding is None:
                 embedding = get_embedding(query_text)
             
+            # 시간 범위 필터 추가
+            where_clause = filter_dict or {}
+            if time_range:
+                where_clause = where_clause.copy()  # 원본 필터를 수정하지 않도록 복사
+                
+                if 'start' in time_range:
+                    where_clause["timestamp"] = where_clause.get("timestamp", {})
+                    where_clause["timestamp"]["$gte"] = time_range['start']
+                
+                if 'end' in time_range:
+                    where_clause["timestamp"] = where_clause.get("timestamp", {})
+                    where_clause["timestamp"]["$lte"] = time_range['end']
+            
             # 검색 실행
             results = self.collection.query(
                 query_embeddings=[embedding],
                 n_results=n_results,
-                where=filter_dict,
+                where=where_clause,
                 include=["documents", "metadatas", "distances"]
             )
             
@@ -326,6 +369,7 @@ class ChromaClient:
                     "id": results["ids"][0][i],
                     "document": results["documents"][0][i],
                     "metadata": results["metadatas"][0][i],
+                    "timestamp": results["metadatas"][0][i].get("timestamp"),
                     "distance": results["distances"][0][i]
                 })
             
@@ -346,6 +390,7 @@ class ChromaClient:
         query_text: str,
         n_results: int = 5,
         filter_dict: Optional[Dict[str, Any]] = None,
+        time_range: Optional[Dict[str, str]] = None,
         k1: float = 1.5,
         b: float = 0.75
     ) -> List[Dict[str, Any]]:
@@ -356,6 +401,7 @@ class ChromaClient:
             query_text: 검색 쿼리
             n_results: 결과 개수
             filter_dict: 필터 조건
+            time_range: 시간 범위 필터 {'start': '2023-01-01T00:00:00', 'end': '2023-01-31T23:59:59'}
             k1: BM25 k1 파라미터
             b: BM25 b 파라미터
         
@@ -366,7 +412,7 @@ class ChromaClient:
             # Chroma는 하이브리드 검색 지원 안함
             # 키워드 검색 대신 벡터 검색만 수행
             logger.warning("Hybrid search not directly supported, using vector search only")
-            return self.query(query_text, n_results, filter_dict)
+            return self.query(query_text, n_results, filter_dict, time_range=time_range)
         except Exception as e:
             error_msg = f"Error performing hybrid search: {str(e)}"
             logger.error(error_msg)

@@ -548,57 +548,72 @@ JSON 스키마에 맞춰 응답하세요."""
     
     def _provide_psychological_insight(self, query: str, context: str = "") -> Dict[str, Any]:
         """
-        일반적인 심리학적 인사이트 제공
+        한국 노인 정신건강 분석 인사이트 제공
         
         Args:
             query: 사용자 쿼리
             context: 추가 컨텍스트
         
         Returns:
-            Dict[str, Any]: 심리학적 인사이트
+            Dict[str, Any]: 정신건강 분석 인사이트
         """
         # JSON 스키마 정의
         schema = {
             "type": "object",
             "properties": {
-                "psychological_perspective": {"type": "string"},
-                "behavioral_insights": {"type": "string"},
-                "cognitive_aspects": {"type": "string"},
-                "emotional_dimensions": {"type": "string"},
-                "developmental_factors": {"type": "string"},
-                "social_implications": {"type": "string"},
-                "recommendations": {
-                    "type": "array",
-                    "items": {"type": "string"}
-                },
-                "research_foundation": {"type": "string"}
+                "mental_health_indicators": {"type": "string"},
+                "cognitive_function": {"type": "string"},
+                "somatic_expressions": {"type": "string"},
+                "emotional_state": {"type": "string"},
+                "social_connection": {"type": "string"},
+                "role_identity": {"type": "string"},
+                "family_dynamics": {"type": "string"},
+                "spiritual_wellbeing": {"type": "string"},
+                "coping_mechanisms": {"type": "string"},
+                "support_resources": {"type": "string"},
+                "risk_factors": {"type": "array", "items": {"type": "string"}},
+                "protective_factors": {"type": "array", "items": {"type": "string"}},
+                "recommendations": {"type": "array", "items": {"type": "string"}},
+                "clinical_considerations": {"type": "string"}
             },
             "required": [
-                "psychological_perspective", 
-                "behavioral_insights", 
-                "cognitive_aspects", 
-                "emotional_dimensions"
+                "mental_health_indicators", 
+                "emotional_state", 
+                "social_connection",
+                "family_dynamics",
+                "risk_factors",
+                "protective_factors",
+                "recommendations"
             ]
         }
         
         # 프롬프트 준비
-        prompt = f"""다음 쿼리에 대해 심리학적 관점에서 인사이트를 제공하세요:
+        prompt = f"""다음 텍스트를 분석하여 한국 노인의 정신건강 상태에 대한 인사이트를 제공하세요:
 
-쿼리: "{query}"
+텍스트: "{query}"
 컨텍스트: "{context}"
 
 다음 측면을 포함하세요:
-1. 심리학적 관점: 주요 심리학 이론 관점에서의 해석
-2. 행동적 인사이트: 행동 패턴이나 동기에 대한 분석
-3. 인지적 측면: 사고 과정, 인식, 신념에 대한 분석
-4. 정서적 측면: 감정적 요소와 그 영향
-5. 발달적 요인: 발달 심리학 관점에서의 분석 (관련된 경우)
-6. 사회적 함의: 대인 관계 또는 사회적 맥락에서의 의미 (관련된 경우)
-7. 권장사항: 심리학적 관점에서의 실용적인 제안
-8. 연구 기반: 관련 심리학 연구나 이론에 대한 간략한 언급
+1. 정신건강 지표: 우울, 불안, 외로움 등 정신건강 문제의 잠재적 신호 분석
+2. 인지기능: 의사소통 패턴에서 나타나는 인지기능 관련 관찰 (있는 경우)
+3. 신체화 표현: 신체 증상(두통, 소화불량, 수면장애 등)으로 표현되는 정신건강 호소
+4. 정서 상태: 표현된 감정과 정서적 건강 상태 평가
+5. 사회적 연결: 사회적 관계, 고립감, 소속감 분석
+6. 역할 정체성: 은퇴, 역할 상실, 사회적 위치 변화와 관련된 정신건강 이슈
+7. 가족 역학: 가족 관계, 부양 부담, 세대 간 갈등이 정신건강에 미치는 영향
+8. 영적 웰빙: 종교, 의미, 목적 등 영적 측면이 정신건강에 미치는 영향
+9. 대처 메커니즘: 스트레스나 어려움에 대응하는 방식과 회복력
+10. 지지 자원: 활용 가능하거나 부족한 지지체계와 서비스
+11. 위험요인: 정신건강 악화 가능성이 있는 위험요인 목록
+12. 보호요인: 정신건강을 지키는 데 도움이 되는 요소 목록
+13. 권장사항: 정신건강 지원을 위한 비임상적 제안
+14. 임상적 고려사항: 전문가 상담이 필요할 수 있는 징후 (진단이 아닌 참고 정보로만 제공)
 
-심리학적으로 정확하고 과학적으로 타당한 인사이트를 제공하세요.
-확실하지 않은 부분에 대해서는 그 한계를 인정하세요.
+분석 시 다음 사항을 고려하세요:
+- 한국 노인은 정신건강 문제를 직접적으로 표현하기보다 신체 증상이나 상황적 어려움으로 표현하는 경향이 있습니다
+- 문화적으로 정신건강 문제에 대한 낙인이 있어 우회적 표현을 사용할 수 있습니다
+- 세대 차이와 개인차를 인식하고, 노인에 대한 고정관념을 피하세요
+- 분석은 정보 제공 목적이며, 전문적 진단이나 치료를 대체할 수 없음을 명시하세요
 
 JSON 스키마에 맞춰 응답하세요."""
         
