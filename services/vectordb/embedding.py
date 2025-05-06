@@ -249,4 +249,56 @@ def semantic_chunking(
         text, 
         chunk_size=max_chunk_size // 5, 
         chunk_overlap=window_size
-    ) 
+    )
+
+
+class EmbeddingModel:
+    """임베딩 모델 클래스"""
+    
+    def __init__(self, model_name: str = "text-embedding-3-large"):
+        """
+        임베딩 모델 초기화
+        
+        Args:
+            model_name: 임베딩 모델 이름
+        """
+        self.model_name = model_name
+        logger.info(f"Embedding model initialized with model: {model_name}")
+    
+    def embed(self, text: str) -> List[float]:
+        """
+        텍스트 임베딩 생성
+        
+        Args:
+            text: 입력 텍스트
+        
+        Returns:
+            List[float]: 임베딩 벡터
+        """
+        return get_embedding(text, self.model_name)
+    
+    async def embed_batch(self, texts: List[str]) -> List[List[float]]:
+        """
+        배치 텍스트 임베딩 생성
+        
+        Args:
+            texts: 입력 텍스트 목록
+        
+        Returns:
+            List[List[float]]: 임베딩 벡터 목록
+        """
+        return await get_embeddings_batch(texts, self.model_name)
+
+
+# 전역 임베딩 모델 인스턴스
+_embedding_model = None
+
+def get_embeddings_model() -> EmbeddingModel:
+    """임베딩 모델 인스턴스 가져오기"""
+    global _embedding_model
+    if _embedding_model is None:
+        from core.config import get_config
+        config = get_config()
+        model_name = config.embedding_model if hasattr(config, 'embedding_model') else "text-embedding-3-large"
+        _embedding_model = EmbeddingModel(model_name)
+    return _embedding_model 

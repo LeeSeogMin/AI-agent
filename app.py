@@ -25,6 +25,7 @@ from agents.web_search_agent import get_web_search_agent
 from agents.data_analysis_agent import get_data_analysis_agent
 from agents.psychological_agent import get_psychological_agent
 from agents.report_writer_agent import get_report_writer_agent
+from services.llm_service import generate_text
 
 # 설정 가져오기
 config = get_config()
@@ -102,8 +103,51 @@ class Application:
         start_time = time.time()
         logger.info(f"Processing query: {query[:100]}... [session: {session_id}]")
         
-        # 감독 에이전트에 쿼리 처리 요청
-        result = self.supervisor.process_user_query(session_id, query)
+        try:
+            # 감독 에이전트에 쿼리 처리 요청
+            result = self.supervisor.process_user_query(session_id, query)
+            
+        except Exception as e:
+            logger.error(f"Error from supervisor agent: {str(e)}")
+            
+            # 오류 발생 시 직접 LLM으로 응답 생성
+            # 간단한 프롬프트 생성
+            prompt = f"""다음 사용자 쿼리에 대한 응답을 생성해주세요:
+            
+사용자 쿼리: "{query}"
+
+명확하고 유용한 정보를 제공하는 답변을 작성해주세요.
+"""
+            
+            try:
+                # LLM 호출
+                response_text = generate_text(prompt=prompt)
+                
+                # 결과 구성
+                result = {
+                    "status": "success",
+                    "answer": response_text,
+                    "explanation": "직접 생성된 응답입니다.",
+                    "sources": []
+                }
+                
+                # 상태 관리자에 대화 기록 추가
+                state_manager = get_state_manager()
+                state = state_manager.get_state(session_id)
+                
+                if not state:
+                    state_manager.create_state(user_query=query, session_id=session_id)
+                
+                state_manager.add_conversation_entry(session_id, "user", query)
+                state_manager.add_conversation_entry(session_id, "system", response_text)
+                
+            except Exception as inner_e:
+                logger.error(f"Error generating direct response: {str(inner_e)}")
+                result = {
+                    "status": "error",
+                    "answer": "죄송합니다, 요청을 처리할 수 없습니다.",
+                    "explanation": f"오류: {str(inner_e)}"
+                }
         
         # 처리 시간 계산
         processing_time = time.time() - start_time

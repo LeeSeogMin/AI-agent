@@ -299,4 +299,43 @@ def extract_links_from_html(html_content: str, base_url: Optional[str] = None) -
         return links
     except Exception as e:
         logger.error(f"Error extracting links from HTML: {str(e)}")
-        return links 
+        return links
+
+
+def extract_content(url: str, timeout: int = 10) -> str:
+    """
+    URL에서 콘텐츠 추출
+    
+    Args:
+        url: 웹 페이지 URL
+        timeout: 타임아웃 (초)
+    
+    Returns:
+        str: 추출된 콘텐츠
+    """
+    try:
+        import requests
+        
+        # URL에서 HTML 가져오기
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        }
+        
+        response = requests.get(url, headers=headers, timeout=timeout)
+        response.raise_for_status()
+        
+        # 콘텐츠 타입 확인
+        content_type = response.headers.get("Content-Type", "")
+        
+        if "text/html" in content_type.lower():
+            # HTML에서 텍스트 추출
+            html_content = response.text
+            return extract_text_from_html(html_content)
+        else:
+            # HTML이 아닌 경우
+            logger.warning(f"URL {url} is not HTML content: {content_type}")
+            return ""
+            
+    except Exception as e:
+        logger.error(f"Error extracting content from {url}: {str(e)}")
+        return "" 

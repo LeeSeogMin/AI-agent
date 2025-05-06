@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field, root_validator
+from pydantic import BaseModel, Field, model_validator, TypeAdapter
 
 from models.base import (ContentType, IdentifiedModel, SourceType,
                        TemporalRelevance, VerificationStatus)
@@ -73,11 +73,11 @@ class KnowledgeChunk(IdentifiedModel):
     relationships: Relationships = Field(default_factory=Relationships)
     usage_stats: UsageStats = Field(default_factory=UsageStats)
     
-    @root_validator
-    def update_last_modified(cls, values):
+    @model_validator(mode='after')
+    def update_last_modified(self) -> 'KnowledgeChunk':
         """Update the last modified timestamp"""
-        values["temporal"].updated_at = datetime.utcnow()
-        return values
+        self.temporal.updated_at = datetime.utcnow()
+        return self
 
 
 class Document(IdentifiedModel):
@@ -119,28 +119,29 @@ class KnowledgeBaseConfig(BaseModel):
     default_chunk_overlap: int = 50  # Default token overlap
     
     # Default collections if not specified
-    @root_validator(pre=True)
-    def set_default_collections(cls, values):
-        if "collections" not in values or not values["collections"]:
-            values["collections"] = [
-                VectorDBCollection(
-                    name="general_knowledge",
-                    description="일반적인 사실 및 개념"
-                ),
-                VectorDBCollection(
-                    name="domain_knowledge",
-                    description="도메인별 전문 지식"
-                ),
-                VectorDBCollection(
-                    name="user_data",
-                    description="사용자 제공 데이터 및 분석"
-                ),
-                VectorDBCollection(
-                    name="generated_content",
-                    description="시스템 생성 결과물"
-                )
+    @model_validator(mode='before')
+    @classmethod
+    def set_default_collections(cls, data: Dict[str, Any]) -> Dict[str, Any]:
+        if "collections" not in data or not data["collections"]:
+            data["collections"] = [
+                {
+                    "name": "general_knowledge",
+                    "description": "일반적인 사실 및 개념"
+                },
+                {
+                    "name": "domain_knowledge",
+                    "description": "도메인별 전문 지식"
+                },
+                {
+                    "name": "user_data",
+                    "description": "사용자 제공 데이터 및 분석"
+                },
+                {
+                    "name": "generated_content",
+                    "description": "시스템 생성 결과물"
+                }
             ]
-        return values
+        return data
 
 
 class SearchQuery(BaseModel):

@@ -19,7 +19,7 @@ from services.vectordb.embedding import (
     get_embedding, compute_embeddings_for_chunks, 
     chunk_text, semantic_chunking, cosine_similarity
 )
-from services.llm_service import generate_text
+from services.llm_service import generate_text, generate_json
 
 # 설정 가져오기
 config = get_config()
@@ -33,26 +33,35 @@ class RAGModel:
     def __init__(
         self,
         vectordb_client = None,
+        embedding_model = None,
+        vector_store = None,
         chunk_size: int = 500,
         chunk_overlap: int = 50,
         similarity_threshold: float = 0.7,
-        max_context_docs: int = 5
+        max_context_docs: int = 5,
+        top_k: int = 5
     ):
         """
         RAG 모델 초기화
         
         Args:
             vectordb_client: 벡터 DB 클라이언트 (없으면 기본값 사용)
+            embedding_model: 임베딩 모델
+            vector_store: 벡터 스토어
             chunk_size: 청크 크기
             chunk_overlap: 청크 오버랩
             similarity_threshold: 유사도 임계값
             max_context_docs: 최대 컨텍스트 문서 수
+            top_k: 검색 결과 개수
         """
-        self.vectordb_client = vectordb_client or get_chroma_client()
+        # vectordb_client 매개변수를 우선 사용하고, 없으면 vector_store 사용
+        self.vectordb_client = vectordb_client or vector_store or get_chroma_client()
+        self.embedding_model = embedding_model
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
         self.similarity_threshold = similarity_threshold
         self.max_context_docs = max_context_docs
+        self.top_k = top_k
         
         logger.info(f"RAG model initialized with chunk_size={chunk_size}, max_context_docs={max_context_docs}")
     
@@ -199,6 +208,111 @@ class RAGModel:
         except Exception as e:
             logger.error(f"Error removing document {doc_id}: {str(e)}")
             return False
+    
+    def retrieve(self, query: str, n_results: Optional[int] = None) -> List[Dict[str, Any]]:
+        """
+        쿼리에 대한 관련 문서 검색
+        
+        Args:
+            query: 검색 쿼리
+            n_results: 결과 개수 (지정하지 않으면 self.top_k 사용)
+        
+        Returns:
+            List[Dict[str, Any]]: 검색 결과
+        """
+        if n_results is None:
+            n_results = self.top_k
+            
+        # 검색 실행
+        results = self.query(
+            query=query,
+            n_results=n_results,
+            rerank=True
+        )
+        
+        return results
+    
+    def generate(
+        self, 
+        query: str, 
+        documents: List[Dict[str, Any]], 
+        task_description: str = ""
+    ) -> Dict[str, Any]:
+        """
+        검색 결과에 기반한 답변 생성
+        
+        Args:
+            query: 사용자 쿼리
+            documents: 검색된 문서 목록
+            task_description: 작업 설명
+        
+        Returns:
+            Dict[str, Any]: 생성된 답변 및 추론 과정
+        """
+        # JSON 스키마 정의
+        schema = {
+            "type": "object",
+            "properties": {
+                "answer": {"type": "string"},
+                "reasoning": {"type": "string"}
+            },
+            "required": ["answer", "reasoning"]
+        }
+        
+        # 컨텍스트 구성
+        context = ""
+        for i, doc in enumerate(documents):
+            text = doc.get("document", "")
+            source = doc.get("source", "unknown")
+            url = doc.get("url", "")
+            
+            if url:
+                source_info = f"[{source}]({url})"
+            else:
+                source_info = f"[{source}]"
+            
+            context += f"\n\n출처 {i+1} {source_info}:\n{text}\n"
+        
+        # 작업 설명 처리
+        task_instruction = ""
+        if task_description:
+            task_instruction = f"\n\n작업 설명: {task_description}\n"
+        
+        # 프롬프트 구성
+        system_message = """당신은 정보 검색 및 답변 생성을 위한 전문가입니다.
+주어진 컨텍스트를 기반으로 사용자 질문에 정확하고 유용한 답변을 제공하세요.
+답변은 제공된 컨텍스트 내용에 근거해야 하며, 근거가 부족한 내용은 포함하지 마세요.
+명확한 추론 과정과 함께 논리적이고 잘 구성된 답변을 제공하세요."""
+        
+        prompt = f"""다음은 사용자의 질문입니다:
+질문: {query}{task_instruction}
+
+다음은 질문에 답변하는 데 사용할 수 있는 컨텍스트 정보입니다:
+{context}
+
+위 컨텍스트만 사용하여 사용자 질문에 답변하세요. 답변은 다음 두 부분으로 구성하세요:
+1. answer: 사용자 질문에 대한 직접적인 답변
+2. reasoning: 이 답변에 도달하기 위한 추론 과정
+
+컨텍스트에 관련 정보가 부족하다면, 솔직히 그렇다고 말하고 제한된 정보를 바탕으로 최선의 답변을 제공하세요."""
+        
+        # LLM으로 답변 생성
+        try:
+            result = generate_json(
+                prompt=prompt,
+                schema=schema,
+                system_message=system_message
+            )
+            
+            logger.info(f"Generated answer with reasoning")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error in answer generation: {str(e)}")
+            return {
+                "answer": "답변을 생성하는 중 오류가 발생했습니다.",
+                "reasoning": f"오류: {str(e)}"
+            }
     
     def query(
         self,

@@ -449,4 +449,25 @@ def search_and_extract(
     Returns:
         Dict[str, Any]: 검색 및 추출 결과
     """
-    return search_service.search_and_extract(query, num_results, "web", fetch_content) 
+    return search_service.search_and_extract(query, num_results, "web", fetch_content)
+
+
+# 웹 검색을 위한 함수
+def search_web(
+    query: str, 
+    limit: Optional[int] = None, 
+    search_type: str = "web"
+) -> List[Dict[str, Any]]:
+    """
+    웹 검색 수행
+    
+    Args:
+        query: 검색 쿼리
+        limit: 결과 제한 개수 (없으면 기본값 사용)
+        search_type: 검색 유형 (web, news, images, videos)
+    
+    Returns:
+        List[Dict[str, Any]]: 검색 결과
+    """
+    search_service = get_search_service()
+    return search_service.search(query, limit, search_type) 
