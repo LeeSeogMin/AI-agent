@@ -1,0 +1,93 @@
+# 환경 변수 파일
+.env
+.env.local
+.env.*.local
+
+# Python 관련
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+.hypothesis/
+.pytest_cache/
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# 가상 환경
+venv/
+env/
+ENV/
+.venv/
+.virtualenv/
+
+# 로그 파일
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 데이터베이스
+*.sqlite
+*.sqlite3
+*.db
+
+# IDE 관련
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# AI 모델 파일 (용량이 큰 파일)
+*.ckpt
+*.pt
+*.h5
+*.model
+*.bin
+*.vec
+*.weights
+
+# 벡터 데이터베이스 파일
+chroma_db/
+faiss_index/
+
+# API 문서 자동 생성
+docs/_build/
+docs/api/
+
+# 임시 파일
+tmp/
+temp/
+.temp/
+.tmp/
+
+# 캐시 디렉토리
+.cache/
+.vector_cache/
+
+# 클라우드 서비스 구성
+.serverle
